@@ -28,3 +28,5 @@ rm -rf feeds/packages/lang/golang
 git clone https://github.com/kenzok8/golang feeds/packages/lang/golang
 ./scripts/feeds install -a 
 sed -i '3i echo 50 > /sys/class/hwmon/hwmon1/pwm1' package/base-files/files/etc/rc.local
+rm -rf openwrt
+mkdir openwrt
