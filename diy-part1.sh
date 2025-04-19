@@ -18,7 +18,7 @@ sed -i '1i src-git kenzo https://github.com/kenzok8/openwrt-packages' feeds.conf
 sed -i '2i src-git small https://github.com/kenzok8/small' feeds.conf.default
 sed -i '3i src-git-full hellworld https://github.com/fw876/helloworld.git' feeds.conf.default
 sed -i '4i src-git-full modem https://github.com/Siriling/5G-Modem-Support.git' feeds.conf.default
-sed -i '5i src-git-full clash https://github.com/vernesong/OpenClash.git' feeds.conf.default
+# sed -i '5i src-git-full clash https://github.com/vernesong/OpenClash.git' feeds.conf.default
 sed -i '6i src-git-full passwall https://github.com/xiaorouji/openwrt-passwall-packages.git' feeds.conf.default
 sed -i '7i src-git qmodem https://github.com/FUjr/modem_feeds.git;main' feeds.conf.default
 ./scripts/feeds update -a && rm -rf feeds/luci/applications/luci-app-mosdns
