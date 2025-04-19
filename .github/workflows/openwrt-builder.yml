@@ -54,10 +54,13 @@
         working-directory: /workdir
         run: |
           df -hT $PWD
-          rm -rf /workdir/openwrt
-          mkdir /workdir/openwrt
-          git clone $REPO_URL -b $REPO_BRANCH openwrt
-          ln -sf /workdir/openwrt $GITHUB_WORKSPACE/openwrt
+          cd /workdir/openwrt
+          git pull
+        # rm -rf /workdir/openwrt
+        # mkdir /workdir/openwrt
+        # git clone $REPO_URL -b $REPO_BRANCH openwrt
+        #  ln -sf /workdir/openwrt $GITHUB_WORKSPACE/openwrt
+          #
   
       - name: Load custom feeds
         run: |
