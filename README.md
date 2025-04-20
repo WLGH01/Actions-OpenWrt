@@ -1,7 +1,7 @@
 # OpenWrt for m28c v1.6 - 云编译固件
 
 [![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/你的用户名/仓库名/openwrt.yml?label=云编译&logo=github)](https://github.com/你的用户名/仓库名/actions)
-[![Latest Release](https://img.shields.io/github/v/release/你的用户名/仓库名?label=最新固件&logo=openwrt)](https://github.com/你的用户名/仓库名/releases/latest)
+[![Latest Release](https://img.shields.io/github/v/release/你的用户名/仓库名?label=最新固件&logo=openwrt)](https://github.com/WLGH01/Actions-OpenWrt/releases)
 [![Device Support](https://img.shields.io/badge/设备-m28c%20v1.6-blue?logo=router)](https://github.com/你的用户名/仓库名)
 
 本项目基于 GitHub Actions 为 m28c v1.6 设备提供自动化编译的 OpenWrt 固件，集成常用插件与优化配置。
