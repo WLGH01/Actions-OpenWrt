@@ -12,7 +12,8 @@
 |------------|-----------------------|
 | 设备型号   | m28c v1.6             |
 | 架构       | ARMv8 (Cortex-A53)    |
-| 无线芯片   | MT7615D 双频 (2.4GHz & 5GHz) |
+
+
 **English** | [中文](https://p3terx.com/archives/build-openwrt-with-github-actions.html)
 
 # Actions-OpenWrt
