@@ -1,0 +1,162 @@
+name: Custom OpenWrt Builder
+
+on:
+  workflow_dispatch:
+    inputs:
+      repo_url:
+        description: OpenWrt source repository URL
+        required: true
+        default: https://github.com/immortalwrt/immortalwrt
+      repo_branch:
+        description: Source branch
+        required: true
+        default: openwrt-24.10
+      config_file:
+        description: Repository config file
+        required: true
+        default: .config
+      feeds_file:
+        description: Repository feeds file
+        required: true
+        default: feeds.conf.default
+      upload_release:
+        description: Publish firmware to a GitHub Release
+        required: true
+        type: boolean
+        default: false
+      build_jobs:
+        description: Build jobs; leave empty to use logical CPUs minus 2
+        required: false
+        default: ""
+
+env:
+  TZ: Asia/Shanghai
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 360
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout configuration
+        uses: actions/checkout@v4
+
+      - name: Initialize build environment
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          sudo rm -rf /usr/local/lib/android /opt/ghc /usr/share/dotnet /opt/hostedtoolcache/CodeQL
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            ack antlr3 asciidoc autoconf automake autopoint binutils bison \
+            build-essential bzip2 ccache cmake cpio curl device-tree-compiler \
+            fastjar flex gawk gettext gcc-multilib g++-multilib git gperf \
+            help2man intltool libc6-dev-i386 libelf-dev libfuse-dev \
+            libglib2.0-dev libgmp3-dev libltdl-dev libmpc-dev libmpfr-dev \
+            libncurses5-dev libncursesw5-dev libpython3-dev libreadline-dev \
+            libssl-dev libtool make ninja-build p7zip-full patch pkgconf \
+            python3 python3-pyelftools python3-setuptools qemu-utils rsync \
+            scons squashfs-tools subversion swig texinfo unzip vim wget \
+            xsltproc zlib1g-dev
+          sudo timedatectl set-timezone "$TZ"
+          mkdir -p /workdir
+          sudo chown "$USER:$GROUPS" /workdir
+
+      - name: Clone selected source
+        working-directory: /workdir
+        env:
+          REPO_URL: ${{ inputs.repo_url }}
+          REPO_BRANCH: ${{ inputs.repo_branch }}
+        run: |
+          git clone --depth=1 --single-branch --branch "$REPO_BRANCH" "$REPO_URL" openwrt
+          ln -s /workdir/openwrt "$GITHUB_WORKSPACE/openwrt"
+
+      - name: Update and install feeds
+        env:
+          FEEDS_FILE: ${{ inputs.feeds_file }}
+        run: |
+          test -s "$FEEDS_FILE"
+          cp "$FEEDS_FILE" openwrt/feeds.conf.default
+          cd openwrt
+          ./scripts/feeds update -a
+          ./scripts/feeds install -a
+
+      - name: Apply selected configuration
+        env:
+          CONFIG_FILE: ${{ inputs.config_file }}
+        run: |
+          test -s "$CONFIG_FILE"
+          cp "$CONFIG_FILE" openwrt/.config
+          cd openwrt
+          make defconfig
+          grep -E '^(CONFIG_TARGET|CONFIG_PACKAGE_(luci-app-daed|daed))' .config | head -60
+
+      - name: Download sources
+        working-directory: /workdir/openwrt
+        run: |
+          for attempt in 1 2 3; do
+            if make download -j2 V=s; then
+              break
+            fi
+            echo "Download attempt $attempt failed; retrying..."
+            if [ "$attempt" = 3 ]; then exit 1; fi
+            sleep 15
+          done
+          find dl -size -1024c -type f -print -delete
+          test -z "$(find dl -size -1024c -type f -print -quit)"
+
+      - name: Compile firmware
+        id: compile
+        working-directory: /workdir/openwrt
+        env:
+          REQUESTED_JOBS: ${{ inputs.build_jobs }}
+        run: |
+          set -o pipefail
+          if [ -n "$REQUESTED_JOBS" ]; then
+            threads="$REQUESTED_JOBS"
+          else
+            threads="$(nproc)"
+            if [ "$threads" -gt 2 ]; then threads=$((threads - 2)); else threads=1; fi
+          fi
+          case "$threads" in (*[!0-9]*|0) echo 'Invalid build_jobs'; exit 1;; esac
+          echo "Using $threads build threads"
+          if ! make -j"$threads" V=s 2>&1 | tee "$GITHUB_WORKSPACE/build.log"; then
+            echo 'Parallel build failed; retrying single-threaded.'
+            make -j1 V=s 2>&1 | tee -a "$GITHUB_WORKSPACE/build.log"
+          fi
+          echo "status=success" >> "$GITHUB_OUTPUT"
+          grep '^CONFIG_TARGET.*DEVICE.*=y' .config | sed -r 's/.*DEVICE_(.*)=y/\1/' > DEVICE_NAME
+          if [ -s DEVICE_NAME ]; then echo "DEVICE_NAME=_$(cat DEVICE_NAME)" >> "$GITHUB_ENV"; fi
+          echo "FILE_DATE=_$(date +'%Y%m%d%H%M')" >> "$GITHUB_ENV"
+
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: custom-openwrt-build-log
+          path: build.log
+          if-no-files-found: ignore
+
+      - name: Organize firmware
+        id: organize
+        if: steps.compile.outputs.status == 'success'
+        run: |
+          cd openwrt/bin/targets/*/*
+          rm -rf packages
+          echo "FIRMWARE=$PWD" >> "$GITHUB_ENV"
+
+      - name: Upload firmware artifact
+        if: steps.organize.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: Custom_OpenWrt_firmware${{ env.DEVICE_NAME }}${{ env.FILE_DATE }}
+          path: ${{ env.FIRMWARE }}
+
+      - name: Publish release
+        if: steps.organize.outcome == 'success' && inputs.upload_release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: custom${{ env.FILE_DATE }}
+          generate_release_notes: true
+          files: ${{ env.FIRMWARE }}/*
