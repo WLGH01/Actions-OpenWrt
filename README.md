@@ -30,7 +30,7 @@
 - 使用 `feeds.conf.default` 和 `.config`。
 - 执行 `diy-part1.sh`、更新并安装 feeds。
 - 执行 `make defconfig` 后调用 `diy-part2.sh`。
-- 编译结束后，无论成功或失败都会清理 `/workdir/openwrt` 和工作区源码。
+- 编译结束后，无论成功或失败都会由“清理环境”Job 删除 `/workdir/openwrt`、固件临时目录和编译日志。
 - 默认发布固件 Artifact，并可发布 GitHub Release。
 
 ### Custom OpenWrt Builder
@@ -47,6 +47,7 @@
 - 默认编译并发为逻辑 CPU 线程数减 2，也可以通过 `build_jobs` 手动指定。
 - 编译失败后自动使用单线程重试。
 - 上传 `custom-openwrt-build-log` 和固件 Artifact。
+- 编译结束后不删除 `/workdir/openwrt`，保留源码、下载缓存和编译目录供下次复用。
 
 ### Build IPK Packages
 
