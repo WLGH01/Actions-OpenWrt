@@ -12,9 +12,9 @@ sed -i '2i src-git small https://github.com/kenzok8/small' feeds.conf.default
 # daed and luci-app-daed come from the dedicated QiuSimons feed below.
 # Remove duplicate copies from kenzok8/small to avoid package conflicts.
 rm -rf feeds/small/daed feeds/small/luci-app-daed
-# Keep ImmortalWrt's native MosDNS package; the small-feed version requires
-# geo2txt, which is unavailable in the current 24.10 package set.
-rm -rf feeds/packages/net/{alist,adguardhome,xray*,v2ray*,sing*,smartdns}
+# Remove conflicting native packages so the selected third-party feed wins.
+rm -rf feeds/luci/applications/luci-app-mosdns
+rm -rf feeds/packages/net/{alist,adguardhome,mosdns,xray*,v2ray*,sing*,smartdns}
 rm -rf feeds/packages/utils/v2dat
 rm -rf feeds/packages/lang/golang
 git clone --depth=1 --single-branch --branch 1.26 \
