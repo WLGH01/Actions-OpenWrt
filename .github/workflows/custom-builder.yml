@@ -193,7 +193,7 @@ jobs:
       - name: 整理输出目录
         run: |
           cd /workdir/openwrt/bin/targets/*/*
-          rm -rf packages
+          # 保留 packages、build_dir、staging_dir、dl 等缓存和编译产物。
           rm -rf "$GITHUB_WORKSPACE/firmware"
           mkdir -p "$GITHUB_WORKSPACE/firmware"
           cp -a . "$GITHUB_WORKSPACE/firmware/"

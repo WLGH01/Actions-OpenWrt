@@ -52,8 +52,19 @@ jobs:
       - name: 获取源码
         working-directory: /workdir
         run: |
-          rm -rf /workdir/openwrt
-          git clone --depth=1 --single-branch --branch "$REPO_BRANCH" "$REPO_URL" /workdir/openwrt
+          if [ -d /workdir/openwrt/.git ]; then
+            cd /workdir/openwrt
+            git remote set-url origin "$REPO_URL"
+            git fetch --depth=1 origin "$REPO_BRANCH"
+            git checkout -B "$REPO_BRANCH" "origin/$REPO_BRANCH"
+            git reset --hard "origin/$REPO_BRANCH"
+          elif [ -e /workdir/openwrt ]; then
+            echo '发现非 Git 的 /workdir/openwrt，停止且不删除。'
+            exit 1
+          else
+            mkdir -p /workdir
+            git clone --depth=1 --single-branch --branch "$REPO_BRANCH" "$REPO_URL" /workdir/openwrt
+          fi
 
       - name: 更新软件源并应用软件包配置
         env:
