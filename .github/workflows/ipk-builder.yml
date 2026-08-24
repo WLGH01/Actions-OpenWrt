@@ -12,6 +12,10 @@ on:
         required: false
         default: ""
 
+concurrency:
+  group: ipk-builder
+  cancel-in-progress: false
+
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   REPO_URL: https://github.com/immortalwrt/immortalwrt
