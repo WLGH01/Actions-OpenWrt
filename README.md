@@ -1,55 +1,69 @@
-# OpenWrt for m28c v1.6 - 云编译固件
+# x86_64 ImmortalWrt 云编译固件
 
-[![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/你的用户名/仓库名/openwrt.yml?label=云编译&logo=github)](https://github.com/你的用户名/仓库名/actions)
-[![Latest Release](https://img.shields.io/github/v/release/你的用户名/仓库名?label=最新固件&logo=openwrt)](https://github.com/WLGH01/Actions-OpenWrt/releases)
-[![Device Support](https://img.shields.io/badge/设备-m28c%20v1.6-blue?logo=router)](https://github.com/你的用户名/仓库名)
+[![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/WLGH01/Actions-OpenWrt/openwrt-builder.yml?label=云编译&logo=github)](https://github.com/WLGH01/Actions-OpenWrt/actions)
+[![Latest Release](https://img.shields.io/github/v/release/WLGH01/Actions-OpenWrt?label=最新固件&logo=openwrt)](https://github.com/WLGH01/Actions-OpenWrt/releases)
+[![Target](https://img.shields.io/badge/目标-x86__64-blue?logo=openwrt)](https://github.com/WLGH01/Actions-OpenWrt)
 
-本项目基于 GitHub Actions 为 m28c v1.6 设备提供自动化编译的 OpenWrt 固件，集成常用插件与优化配置。
+本项目使用 GitHub Actions 自动编译 **ImmortalWrt 24.10 x86_64** 固件，适用于通用 x86_64 软路由、虚拟机和物理机。
 
-## 设备信息
+## 固件信息
 
-| 项目       | 详情                  |
-|------------|-----------------------|
-| 设备型号   | m28c v1.6             |
-| 架构       | ARMv8 (Cortex-A53)    |
+| 项目 | 详情 |
+| --- | --- |
+| 源码 | [ImmortalWrt](https://github.com/immortalwrt/immortalwrt) |
+| 分支 | `openwrt-24.10` |
+| 目标平台 | `x86/64` |
+| 目标设备 | `generic` |
+| 文件系统 | SquashFS |
+| 编译方式 | GitHub Actions |
 
+## 集成内容
 
-**English** | [中文](https://p3terx.com/archives/build-openwrt-with-github-actions.html)
+- LuCI Web 管理界面
+- 常用网络、存储和系统工具
+- `luci-app-daed` 与 `daed`
+- BTF / BPF 工具链支持
+- `vmlinux-btf` 软件包源
+- 当前配置中的其他插件以 [`.config`](.config) 为准
 
-# Actions-OpenWrt
+## 软件源
 
-[![LICENSE](https://img.shields.io/github/license/mashape/apistatus.svg?style=flat-square&label=LICENSE)](https://github.com/P3TERX/Actions-OpenWrt/blob/master/LICENSE)
-![GitHub Stars](https://img.shields.io/github/stars/P3TERX/Actions-OpenWrt.svg?style=flat-square&label=Stars&logo=github)
-![GitHub Forks](https://img.shields.io/github/forks/P3TERX/Actions-OpenWrt.svg?style=flat-square&label=Forks&logo=github)
+软件包源配置在 [`feeds.conf.default`](feeds.conf.default)，当前使用：
 
-A template for building OpenWrt with GitHub Actions
+- ImmortalWrt `packages`
+- ImmortalWrt `luci`
+- OpenWrt `routing`
+- OpenWrt `telephony`
+- [QiuSimons/luci-app-daed](https://github.com/QiuSimons/luci-app-daed)
+- [QiuSimons/vmlinux-btf](https://github.com/QiuSimons/vmlinux-btf)
 
-## Usage
+## 使用方法
 
-- Click the [Use this template](https://github.com/P3TERX/Actions-OpenWrt/generate) button to create a new repository.
-- Generate `.config` files using [Lean's OpenWrt](https://github.com/coolsnowwolf/lede) source code. ( You can change it through environment variables in the workflow file. )
-- Push `.config` file to the GitHub repository.
-- Select `Build OpenWrt` on the Actions page.
-- Click the `Run workflow` button.
-- When the build is complete, click the `Artifacts` button in the upper right corner of the Actions page to download the binaries.
+1. 打开仓库的 [Actions](https://github.com/WLGH01/Actions-OpenWrt/actions) 页面。
+2. 选择 **OpenWrt Builder**。
+3. 点击 **Run workflow** 手动开始编译。
+4. 编译完成后，在 Artifacts 下载固件，或在 Releases 页面下载发布版本。
 
-## Tips
+工作流文件位于：[` .github/workflows/openwrt-builder.yml`](.github/workflows/openwrt-builder.yml)。
 
-- It may take a long time to create a `.config` file and build the OpenWrt firmware. Thus, before create repository to build your own firmware, you may check out if others have already built it which meet your needs by simply [search `Actions-Openwrt` in GitHub](https://github.com/search?q=Actions-openwrt).
-- Add some meta info of your built firmware (such as firmware architecture and installed packages) to your repository introduction, this will save others' time.
+## 编译策略
 
-## Credits
+- 源码和 feeds 下载失败时自动重试 3 次。
+- 编译并发使用 Runner 逻辑 CPU 数减 2，至少保留 1 个并发任务。
+- 并行编译失败后自动使用单线程重试。
+- 并行和单线程均失败时，任务会正确标记为失败。
+- 无论编译是否成功，都会尝试上传 `build.log`，便于排查失败原因。
 
-- [Microsoft Azure](https://azure.microsoft.com)
-- [GitHub Actions](https://github.com/features/actions)
-- [OpenWrt](https://github.com/openwrt/openwrt)
-- [coolsnowwolf/lede](https://github.com/coolsnowwolf/lede)
-- [Mikubill/transfer](https://github.com/Mikubill/transfer)
-- [softprops/action-gh-release](https://github.com/softprops/action-gh-release)
-- [Mattraks/delete-workflow-runs](https://github.com/Mattraks/delete-workflow-runs)
-- [dev-drprasad/delete-older-releases](https://github.com/dev-drprasad/delete-older-releases)
-- [peter-evans/repository-dispatch](https://github.com/peter-evans/repository-dispatch)
+## 常见问题
 
-## License
+### 编译中途失败
 
-[MIT](https://github.com/P3TERX/Actions-OpenWrt/blob/main/LICENSE) © [**P3TERX**](https://p3terx.com)
+优先在失败的 Actions 运行记录中下载 `openwrt-build-log`，查看最后一个失败的 package 和具体错误。常见原因包括源码下载失败、上游 feed 更新导致的依赖变化、GitHub Runner 内存不足以及第三方插件源码临时不可用。
+
+### daed 的 BTF 依赖
+
+`luci-app-daed` 使用 BPF/CO-RE 能力。当前配置已启用内核 BTF 和 BPF 工具链，并加入 `vmlinux-btf` feed。若上游依赖发生变化，以 Actions 中 `make defconfig` 和编译日志的实际结果为准。
+
+## 许可证
+
+本项目沿用 [MIT License](LICENSE)。
