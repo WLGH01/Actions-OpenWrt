@@ -34,7 +34,7 @@ on:
         default: "5120"
 
 concurrency:
-  group: custom-openwrt-builder
+  group: openwrt-shared-self-hosted-runner
   cancel-in-progress: false
 
 env:
