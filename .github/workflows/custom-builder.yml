@@ -69,6 +69,7 @@ jobs:
           REPO_URL: ${{ inputs.repo_url }}
           REPO_BRANCH: ${{ inputs.repo_branch }}
         run: |
+          rm -rf /workdir/openwrt "$GITHUB_WORKSPACE/openwrt"
           git clone --depth=1 --single-branch --branch "$REPO_BRANCH" "$REPO_URL" openwrt
           ln -s /workdir/openwrt "$GITHUB_WORKSPACE/openwrt"
 
