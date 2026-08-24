@@ -32,7 +32,6 @@ on:
         description: RootFS 分区大小，单位 MiB
         required: true
         default: "5120"
-  repository_dispatch:
 
 permissions:
   contents: write
