@@ -77,7 +77,7 @@ jobs:
         working-directory: /workdir/openwrt
         run: |
           for attempt in 1 2 3; do
-            if make download -j2 V=s; then
+            if make download -j2; then
               break
             fi
             echo "Download attempt $attempt failed; retrying..."
@@ -102,11 +102,11 @@ jobs:
             threads=1
           fi
           echo "Using $threads build threads ($(nproc) CPU cores minus 2)"
-          if make -j"$threads" V=s 2>&1 | tee "$GITHUB_WORKSPACE/build.log"; then
+          if make -j"$threads" 2>&1 | tee "$GITHUB_WORKSPACE/build.log"; then
             :
           else
-            echo 'Parallel build failed; retrying single-threaded.'
-            if ! make -j1 V=s 2>&1 | tee -a "$GITHUB_WORKSPACE/build.log"; then
+            echo 'Parallel build failed; retrying single-threaded. Detailed output is in build.log.'
+            if ! make -j1 2>&1 | tee -a "$GITHUB_WORKSPACE/build.log"; then
               echo 'Single-threaded build failed.'
               exit 1
             fi
