@@ -188,10 +188,17 @@ jobs:
     steps:
       - name: 整理输出目录
         run: |
-          cd /workdir/openwrt/bin/targets/*/*
+          set -e
+          target_dir=$(ls -d /workdir/openwrt/bin/targets/*/* 2>/dev/null | head -1)
+          if [ -z "$target_dir" ]; then
+            echo '未找到固件输出目录，跳过整理。'
+            exit 0
+          fi
+          cd "$target_dir"
+          echo "固件目录: $PWD"
           rm -rf packages
+          rm -rf "$GITHUB_WORKSPACE/firmware"
           mkdir -p "$GITHUB_WORKSPACE/firmware"
-          rm -rf "$GITHUB_WORKSPACE/firmware"/*
           cp -a . "$GITHUB_WORKSPACE/firmware/"
 
   upload_log:
@@ -210,6 +217,7 @@ jobs:
   upload_firmware:
     name: 上传固件 Artifact
     needs: organize
+    if: needs.organize.result == 'success'
     runs-on: self-hosted
     steps:
       - name: 上传固件
@@ -221,7 +229,7 @@ jobs:
   release:
     name: 发布 GitHub Release
     needs: upload_firmware
-    if: inputs.upload_release == true
+    if: needs.upload_firmware.result == 'success' && inputs.upload_release == true
     runs-on: self-hosted
     steps:
       - name: 下载固件 Artifact
@@ -239,7 +247,7 @@ jobs:
   cleanup:
     name: 清理编译环境
     if: always()
-    needs: [upload_firmware, upload_log]
+    needs: [parallel_compile, single_compile]
     runs-on: self-hosted
     steps:
       - name: 清理源码和临时输出
