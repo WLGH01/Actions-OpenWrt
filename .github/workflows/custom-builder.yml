@@ -89,8 +89,9 @@ jobs:
             git reset --hard "origin/$REPO_BRANCH"
             echo '保留 build_dir、staging_dir、dl 等编译缓存，不执行 git clean。'
           elif [ -e /workdir/openwrt ]; then
-            rm -rf /workdir/openwrt
-            git clone --depth=1 --single-branch --branch "$REPO_BRANCH" "$REPO_URL" /workdir/openwrt
+            echo '发现非 Git 的 /workdir/openwrt，停止且不删除，避免误删编译缓存。'
+            echo '请先人工检查该目录，确认后再处理。'
+            exit 1
           else
             git clone --depth=1 --single-branch --branch "$REPO_BRANCH" "$REPO_URL" /workdir/openwrt
           fi
