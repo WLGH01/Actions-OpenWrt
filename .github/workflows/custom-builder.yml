@@ -79,7 +79,7 @@ jobs:
             git fetch --depth=1 origin "$REPO_BRANCH"
             git checkout -B "$REPO_BRANCH" "origin/$REPO_BRANCH"
             git reset --hard "origin/$REPO_BRANCH"
-            git clean -fdx
+            # 保留 build_dir、staging_dir、dl 等编译缓存，不执行 git clean -fdx。
           elif [ -e /workdir/openwrt ]; then
             rm -rf /workdir/openwrt
             git clone --depth=1 --single-branch --branch "$REPO_BRANCH" "$REPO_URL" /workdir/openwrt
