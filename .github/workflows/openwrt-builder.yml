@@ -152,7 +152,6 @@ jobs:
     name: 并行编译固件
     needs: download
     runs-on: self-hosted
-    continue-on-error: true
     steps:
       - name: 执行并行编译
         run: |
@@ -171,7 +170,7 @@ jobs:
   single_compile:
     name: 单线程编译固件
     needs: parallel_compile
-    if: needs.parallel_compile.result == 'failure'
+    if: always() && needs.parallel_compile.result == 'failure'
     runs-on: self-hosted
     steps:
       - name: 执行单线程编译
