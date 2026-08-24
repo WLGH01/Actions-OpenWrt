@@ -2,16 +2,49 @@ name: OpenWrt 固件编译
 
 on:
   workflow_dispatch:
+    inputs:
+      repo_url:
+        description: OpenWrt 源码仓库地址
+        required: true
+        default: https://github.com/immortalwrt/immortalwrt
+      repo_branch:
+        description: 源码分支
+        required: true
+        default: openwrt-24.10
+      config_file:
+        description: 配置文件路径
+        required: true
+        default: .config
+      feeds_file:
+        description: 软件源配置文件路径
+        required: true
+        default: feeds.conf.default
+      upload_release:
+        description: 是否发布 GitHub Release
+        required: true
+        type: boolean
+        default: true
+      build_jobs:
+        description: 编译并发数，留空使用逻辑线程数减 2
+        required: false
+        default: ""
+      rootfs_size:
+        description: RootFS 分区大小，单位 MiB
+        required: true
+        default: "5120"
   repository_dispatch:
 
 permissions:
   contents: write
 
 env:
-  REPO_URL: https://github.com/immortalwrt/immortalwrt
-  REPO_BRANCH: openwrt-24.10
-  FEEDS_CONF: feeds.conf.default
-  CONFIG_FILE: .config
+  REPO_URL: ${{ inputs.repo_url || 'https://github.com/immortalwrt/immortalwrt' }}
+  REPO_BRANCH: ${{ inputs.repo_branch || 'openwrt-24.10' }}
+  FEEDS_CONF: ${{ inputs.feeds_file || 'feeds.conf.default' }}
+  CONFIG_FILE: ${{ inputs.config_file || '.config' }}
+  UPLOAD_RELEASE: ${{ inputs.upload_release || true }}
+  BUILD_JOBS: ${{ inputs.build_jobs || '' }}
+  ROOTFS_SIZE: ${{ inputs.rootfs_size || '5120' }}
   TZ: Asia/Shanghai
 
 jobs:
@@ -84,8 +117,11 @@ jobs:
     steps:
       - name: 应用 .config 和 diy-part2
         run: |
+          test -s "$GITHUB_WORKSPACE/$CONFIG_FILE"
           cp "$GITHUB_WORKSPACE/$CONFIG_FILE" /workdir/openwrt/.config
           cd /workdir/openwrt
+          case "$ROOTFS_SIZE" in (*[!0-9]*|0) echo 'RootFS 大小无效'; exit 1;; esac
+          sed -i "s/^CONFIG_TARGET_ROOTFS_PARTSIZE=.*/CONFIG_TARGET_ROOTFS_PARTSIZE=$ROOTFS_SIZE/" .config
           make defconfig
           "$GITHUB_WORKSPACE/diy-part2.sh"
           grep -q '^CONFIG_TARGET_x86_64_DEVICE_generic=y' .config
@@ -117,8 +153,13 @@ jobs:
         run: |
           set -o pipefail
           cd /workdir/openwrt
-          threads="$(nproc)"
-          if [ "$threads" -gt 2 ]; then threads=$((threads - 2)); else threads=1; fi
+          if [ -n "$BUILD_JOBS" ]; then
+            threads="$BUILD_JOBS"
+          else
+            threads="$(nproc)"
+            if [ "$threads" -gt 2 ]; then threads=$((threads - 2)); else threads=1; fi
+          fi
+          case "$threads" in (*[!0-9]*|0) echo '编译并发数无效'; exit 1;; esac
           echo "使用 $threads 个编译线程"
           if ! make -j"$threads" 2>&1 | tee "$GITHUB_WORKSPACE/build.log"; then
             echo '并行编译失败，开始单线程重试'
@@ -161,6 +202,24 @@ jobs:
         with:
           name: OpenWrt_firmware_x86_64
           path: firmware
+
+  发布版本:
+    name: 发布 GitHub Release
+    needs: 上传固件
+    if: inputs.upload_release == true
+    runs-on: self-hosted
+    steps:
+      - name: 下载固件 Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: OpenWrt_firmware_x86_64
+          path: firmware
+      - name: 发布固件版本
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: openwrt-${{ github.run_number }}
+          generate_release_notes: true
+          files: firmware/*
 
   cleanup:
     name: 清理编译环境
