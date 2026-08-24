@@ -1,0 +1,122 @@
+name: Build IPK Packages
+
+on:
+  workflow_dispatch:
+    inputs:
+      package_config:
+        description: IPK package configuration file
+        required: true
+        default: ipk.config
+      build_jobs:
+        description: Build jobs; empty uses logical CPUs minus 2
+        required: false
+        default: ""
+
+env:
+  REPO_URL: https://github.com/immortalwrt/immortalwrt
+  REPO_BRANCH: openwrt-24.10
+  TZ: Asia/Shanghai
+
+jobs:
+  build-ipk:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 360
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout configuration
+        uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            ack asciidoc autoconf automake autopoint binutils bison build-essential \
+            bzip2 ccache cmake cpio curl device-tree-compiler fastjar flex gawk \
+            gettext gcc-multilib g++-multilib git gperf help2man intltool \
+            libc6-dev-i386 libelf-dev libfuse-dev libglib2.0-dev libgmp3-dev \
+            libltdl-dev libmpc-dev libmpfr-dev libncurses5-dev libncursesw5-dev \
+            libpython3-dev libreadline-dev libssl-dev libtool make ninja-build \
+            p7zip-full patch pkgconf python3 python3-pyelftools python3-setuptools \
+            qemu-utils rsync scons squashfs-tools subversion swig texinfo unzip \
+            vim wget xsltproc zlib1g-dev
+          sudo timedatectl set-timezone "$TZ"
+
+      - name: Clone source
+        working-directory: /workdir
+        run: |
+          rm -rf /workdir/openwrt
+          git clone --depth=1 --single-branch --branch "$REPO_BRANCH" "$REPO_URL" /workdir/openwrt
+
+      - name: Update feeds and apply package config
+        env:
+          PACKAGE_CONFIG: ${{ inputs.package_config }}
+        run: |
+          test -s "$PACKAGE_CONFIG"
+          cp "$PACKAGE_CONFIG" /workdir/openwrt/ipk.config
+          cd /workdir/openwrt
+          cp "$GITHUB_WORKSPACE/feeds.conf.default" feeds.conf.default
+          chmod +x "$GITHUB_WORKSPACE/diy-part1.sh"
+          "$GITHUB_WORKSPACE/diy-part1.sh"
+          ./scripts/feeds update -a
+          ./scripts/feeds install -a
+          cp "$GITHUB_WORKSPACE/.config" .config
+          cat ipk.config >> .config
+          make defconfig
+          grep -E '^CONFIG_PACKAGE_.*=[ym]$' ipk.config > selected-packages.config
+          test -s selected-packages.config
+          sed -E 's/^CONFIG_PACKAGE_([^=]+)=[ym]$/\1/' selected-packages.config > selected-packages.txt
+          cat selected-packages.txt
+
+      - name: Download package sources
+        working-directory: /workdir/openwrt
+        run: |
+          for attempt in 1 2 3; do
+            if make download -j2; then break; fi
+            if [ "$attempt" = 3 ]; then exit 1; fi
+            sleep 15
+          done
+          find dl -size -1024c -type f -print -delete
+
+      - name: Compile selected IPK packages
+        working-directory: /workdir/openwrt
+        env:
+          REQUESTED_JOBS: ${{ inputs.build_jobs }}
+        run: |
+          set -euo pipefail
+          if [ -n "$REQUESTED_JOBS" ]; then
+            jobs="$REQUESTED_JOBS"
+          else
+            jobs="$(nproc)"
+            if [ "$jobs" -gt 2 ]; then jobs=$((jobs - 2)); else jobs=1; fi
+          fi
+          case "$jobs" in (*[!0-9]*|0) echo 'Invalid build_jobs'; exit 1;; esac
+          : > "$GITHUB_WORKSPACE/ipk-build.log"
+          while IFS= read -r package; do
+            [ -n "$package" ] || continue
+            path="$(find package feeds -type d -name "$package" -print -quit 2>/dev/null || true)"
+            if [ -z "$path" ]; then
+              echo "Package source not found: $package" | tee -a "$GITHUB_WORKSPACE/ipk-build.log"
+              exit 1
+            fi
+            target="${path#./}"
+            echo "===== Building $package ($target) =====" | tee -a "$GITHUB_WORKSPACE/ipk-build.log"
+            make "$target/compile" -j"$jobs" 2>&1 | tee -a "$GITHUB_WORKSPACE/ipk-build.log"
+          done < selected-packages.txt
+
+      - name: Upload IPK packages
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: openwrt-ipk-packages
+          path: |
+            /workdir/openwrt/bin/packages/**/*.ipk
+            /workdir/openwrt/bin/targets/**/*.ipk
+            ipk-build.log
+          if-no-files-found: warn
+
+      - name: Cleanup
+        if: always()
+        run: rm -rf /workdir/openwrt
