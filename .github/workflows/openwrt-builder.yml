@@ -15,16 +15,16 @@ env:
   TZ: Asia/Shanghai
 
 jobs:
-  检出配置:
+  checkout:
     name: 检出配置
     runs-on: self-hosted
     steps:
       - name: 检出仓库配置
         uses: actions/checkout@v4
 
-  准备环境:
+  prepare:
     name: 准备编译环境
-    needs: 检出配置
+    needs: checkout
     runs-on: self-hosted
     steps:
       - name: 安装编译依赖
@@ -44,9 +44,9 @@ jobs:
           sudo timedatectl set-timezone "$TZ"
           mkdir -p /workdir
 
-  获取源码:
+  source:
     name: 获取 ImmortalWrt 源码
-    needs: 准备环境
+    needs: prepare
     runs-on: self-hosted
     steps:
       - name: 克隆或更新源码
@@ -63,9 +63,9 @@ jobs:
             git clone --depth=1 --single-branch --branch "$REPO_BRANCH" "$REPO_URL" /workdir/openwrt
           fi
 
-  更新软件源:
+  feeds:
     name: 更新并安装 feeds
-    needs: 获取源码
+    needs: source
     runs-on: self-hosted
     steps:
       - name: 执行 diy-part1 并更新 feeds
@@ -77,9 +77,9 @@ jobs:
           ./scripts/feeds update -a
           ./scripts/feeds install -a
 
-  配置系统:
+  config:
     name: 配置系统和插件
-    needs: 更新软件源
+    needs: feeds
     runs-on: self-hosted
     steps:
       - name: 应用 .config 和 diy-part2
@@ -91,9 +91,9 @@ jobs:
           grep -q '^CONFIG_TARGET_x86_64_DEVICE_generic=y' .config
           grep -E '^(CONFIG_TARGET|CONFIG_PACKAGE_(luci-app-daed|daed|vmlinux-btf))' .config | head -60
 
-  下载源码:
+  download:
     name: 下载软件包源码
-    needs: 配置系统
+    needs: config
     runs-on: self-hosted
     steps:
       - name: 下载并检查源码
@@ -108,9 +108,9 @@ jobs:
           find dl -size -1024c -type f -print -delete
           test -z "$(find dl -size -1024c -type f -print -quit)"
 
-  编译固件:
+  compile:
     name: 编译固件
-    needs: 下载源码
+    needs: download
     runs-on: self-hosted
     steps:
       - name: 编译并保存日志
@@ -125,9 +125,9 @@ jobs:
             make -j1 2>&1 | tee -a "$GITHUB_WORKSPACE/build.log"
           fi
 
-  整理固件:
+  organize:
     name: 整理固件
-    needs: 编译固件
+    needs: compile
     runs-on: self-hosted
     steps:
       - name: 整理输出目录
@@ -138,10 +138,10 @@ jobs:
           rm -rf "$GITHUB_WORKSPACE/firmware"/*
           cp -a . "$GITHUB_WORKSPACE/firmware/"
 
-  上传日志:
+  upload_log:
     name: 上传编译日志
     if: always()
-    needs: [编译固件]
+    needs: [compile]
     runs-on: self-hosted
     steps:
       - name: 上传 build.log
@@ -151,9 +151,9 @@ jobs:
           path: build.log
           if-no-files-found: ignore
 
-  上传固件:
+  upload_firmware:
     name: 上传固件 Artifact
-    needs: 整理固件
+    needs: organize
     runs-on: self-hosted
     steps:
       - name: 上传固件
@@ -162,10 +162,10 @@ jobs:
           name: OpenWrt_firmware_x86_64
           path: firmware
 
-  清理环境:
+  cleanup:
     name: 清理编译环境
     if: always()
-    needs: [上传固件, 上传日志]
+    needs: [upload_firmware, upload_log]
     runs-on: self-hosted
     steps:
       - name: 清理源码和临时输出
