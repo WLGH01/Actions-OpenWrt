@@ -13,6 +13,7 @@ on:
         default: ""
 
 env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   REPO_URL: https://github.com/immortalwrt/immortalwrt
   REPO_BRANCH: openwrt-24.10
   TZ: Asia/Shanghai
@@ -25,7 +26,7 @@ jobs:
       contents: read
     steps:
       - name: 检出仓库配置
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: 安装编译依赖
         env:
@@ -108,7 +109,7 @@ jobs:
 
       - name: 上传 IPK 软件包
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: openwrt-ipk-packages
           path: |

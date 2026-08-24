@@ -34,6 +34,7 @@ on:
         default: "5120"
 
 env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   TZ: Asia/Shanghai
 
 jobs:
@@ -42,7 +43,7 @@ jobs:
     runs-on: self-hosted
     steps:
       - name: 检出仓库配置
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
   prepare:
     name: 准备编译环境
@@ -199,7 +200,7 @@ jobs:
     runs-on: self-hosted
     steps:
       - name: 上传 build.log
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: custom-openwrt-build-log
           path: build.log
@@ -211,7 +212,7 @@ jobs:
     runs-on: self-hosted
     steps:
       - name: 上传固件 Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: Custom_OpenWrt_firmware
           path: firmware
@@ -223,7 +224,7 @@ jobs:
     runs-on: self-hosted
     steps:
       - name: 下载固件 Artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: Custom_OpenWrt_firmware
           path: firmware
