@@ -78,7 +78,9 @@ jobs:
         run: |
           test -s "$FEEDS_FILE"
           cp "$FEEDS_FILE" openwrt/feeds.conf.default
+          chmod +x diy-part1.sh diy-part2.sh
           cd openwrt
+          "$GITHUB_WORKSPACE/diy-part1.sh"
           ./scripts/feeds update -a
           ./scripts/feeds install -a
 
@@ -90,6 +92,7 @@ jobs:
           cp "$CONFIG_FILE" openwrt/.config
           cd openwrt
           make defconfig
+           "$GITHUB_WORKSPACE/diy-part2.sh"
           grep -E '^(CONFIG_TARGET|CONFIG_PACKAGE_(luci-app-daed|daed))' .config | head -60
 
       - name: Download sources
