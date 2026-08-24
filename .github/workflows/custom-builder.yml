@@ -220,7 +220,6 @@ jobs:
   upload_firmware:
     name: 上传固件文件
     needs: organize
-    if: needs.organize.result == 'success'
     runs-on: self-hosted
     steps:
       - name: 上传固件 Artifact
@@ -232,7 +231,7 @@ jobs:
   release:
     name: 发布固件版本
     needs: upload_firmware
-    if: needs.upload_firmware.result == 'success' && inputs.upload_release == true
+    if: inputs.upload_release == true
     runs-on: self-hosted
     steps:
       - name: 下载固件 Artifact
