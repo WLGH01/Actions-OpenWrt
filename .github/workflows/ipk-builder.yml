@@ -116,7 +116,3 @@ jobs:
             /workdir/openwrt/bin/targets/**/*.ipk
             ipk-build.log
           if-no-files-found: warn
-
-      - name: Cleanup
-        if: always()
-        run: rm -rf /workdir/openwrt
