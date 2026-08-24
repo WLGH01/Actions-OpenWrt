@@ -56,7 +56,9 @@ jobs:
       - name: Load and update feeds
         run: |
           cp "$FEEDS_CONF" openwrt/feeds.conf.default
+          chmod +x diy-part1.sh diy-part2.sh
           cd openwrt
+          "$GITHUB_WORKSPACE/diy-part1.sh"
           ./scripts/feeds update -a
           ./scripts/feeds install -a
 
@@ -65,6 +67,8 @@ jobs:
           cp "$CONFIG_FILE" openwrt/.config
           cd openwrt
           make defconfig
+          "$GITHUB_WORKSPACE/diy-part2.sh"
+          grep -q '^CONFIG_TARGET_x86_64_DEVICE_generic=y' .config || { echo 'x86_64 generic target is required'; exit 1; }
           if grep -q '^CONFIG_PACKAGE_luci-app-daed=y' .config; then
             grep -q '^CONFIG_PACKAGE_daed=y' .config || { echo 'luci-app-daed is enabled but daed is missing'; exit 1; }
           fi
