@@ -50,8 +50,20 @@ jobs:
       - name: Clone ImmortalWrt
         working-directory: /workdir
         run: |
-          rm -rf /workdir/openwrt "$GITHUB_WORKSPACE/openwrt"
-          git clone --depth=1 --single-branch --branch "$REPO_BRANCH" "$REPO_URL" openwrt
+          if [ -d /workdir/openwrt/.git ]; then
+            cd /workdir/openwrt
+            git remote set-url origin "$REPO_URL"
+            git fetch --depth=1 origin "$REPO_BRANCH"
+            git checkout -B "$REPO_BRANCH" "origin/$REPO_BRANCH"
+            git reset --hard "origin/$REPO_BRANCH"
+            git clean -fdx
+          elif [ -e /workdir/openwrt ]; then
+            rm -rf /workdir/openwrt
+            git clone --depth=1 --single-branch --branch "$REPO_BRANCH" "$REPO_URL" /workdir/openwrt
+          else
+            git clone --depth=1 --single-branch --branch "$REPO_BRANCH" "$REPO_URL" /workdir/openwrt
+          fi
+          rm -rf "$GITHUB_WORKSPACE/openwrt"
           ln -s /workdir/openwrt "$GITHUB_WORKSPACE/openwrt"
 
       - name: Load and update feeds
