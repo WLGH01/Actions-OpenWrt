@@ -174,7 +174,7 @@ jobs:
           set -o pipefail
           cd /workdir/openwrt
           echo '并行编译失败，开始单线程编译'
-          make -j1 2>&1 | tee -a "$GITHUB_WORKSPACE/build.log"
+          make -j1 V=s 2>&1 | tee -a "$GITHUB_WORKSPACE/build.log"
 
   organize:
     name: 整理固件
