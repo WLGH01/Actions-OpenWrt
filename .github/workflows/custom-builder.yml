@@ -143,12 +143,13 @@ jobs:
           find dl -size -1024c -type f -print -delete
           test -z "$(find dl -size -1024c -type f -print -quit)"
 
-  compile:
-    name: 编译固件
+  parallel_compile:
+    name: 并行编译固件
     needs: download
     runs-on: self-hosted
+    continue-on-error: true
     steps:
-      - name: 编译并保存日志
+      - name: 执行并行编译
         env:
           REQUESTED_JOBS: ${{ inputs.build_jobs }}
         run: |
@@ -162,16 +163,25 @@ jobs:
           fi
           case "$threads" in (*[!0-9]*|0) echo '编译并发数无效'; exit 1;; esac
           echo "使用 $threads 个编译线程"
-          if ! make -j"$threads" 2>&1 | tee "$GITHUB_WORKSPACE/build.log"; then
-            echo '并行编译失败，开始单线程重试'
-            if ! make -j1 2>&1 | tee -a "$GITHUB_WORKSPACE/build.log"; then
-              exit 1
-            fi
-          fi
+          make -j"$threads" 2>&1 | tee "$GITHUB_WORKSPACE/build.log"
+
+  single_compile:
+    name: 单线程编译固件
+    needs: parallel_compile
+    if: needs.parallel_compile.result == 'failure'
+    runs-on: self-hosted
+    steps:
+      - name: 执行单线程编译
+        run: |
+          set -o pipefail
+          cd /workdir/openwrt
+          echo '并行编译失败，开始单线程编译'
+          make -j1 2>&1 | tee -a "$GITHUB_WORKSPACE/build.log"
 
   organize:
     name: 整理固件
-    needs: compile
+    needs: [parallel_compile, single_compile]
+    if: always() && (needs.parallel_compile.result == 'success' || needs.single_compile.result == 'success')
     runs-on: self-hosted
     steps:
       - name: 整理输出目录
@@ -185,7 +195,7 @@ jobs:
   upload_log:
     name: 上传编译日志
     if: always()
-    needs: [compile]
+    needs: [parallel_compile, single_compile]
     runs-on: self-hosted
     steps:
       - name: 上传 build.log
