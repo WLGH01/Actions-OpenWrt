@@ -1,4 +1,4 @@
-name: Custom OpenWrt Builder
+name: 自定义 OpenWrt 固件编译
 
 on:
   workflow_dispatch:
@@ -43,10 +43,10 @@ jobs:
     permissions:
       contents: write
     steps:
-      - name: Checkout configuration
+      - name: 检出仓库配置
         uses: actions/checkout@v4
 
-      - name: Initialize build environment
+      - name: 准备编译环境
         env:
           DEBIAN_FRONTEND: noninteractive
         run: |
@@ -67,7 +67,7 @@ jobs:
           mkdir -p /workdir
           sudo chown "$USER:$GROUPS" /workdir
 
-      - name: Clone selected source
+      - name: 获取并更新源码
         working-directory: /workdir
         env:
           REPO_URL: ${{ inputs.repo_url }}
@@ -89,7 +89,7 @@ jobs:
           rm -rf "$GITHUB_WORKSPACE/openwrt"
           ln -s /workdir/openwrt "$GITHUB_WORKSPACE/openwrt"
 
-      - name: Update and install feeds
+      - name: 更新并安装软件源
         env:
           FEEDS_FILE: ${{ inputs.feeds_file }}
         run: |
@@ -101,7 +101,7 @@ jobs:
           ./scripts/feeds update -a
           ./scripts/feeds install -a
 
-      - name: Apply selected configuration
+      - name: 应用自定义配置
         env:
           CONFIG_FILE: ${{ inputs.config_file }}
         run: |
@@ -114,7 +114,7 @@ jobs:
           "$GITHUB_WORKSPACE/diy-part2.sh"
           grep -E '^(CONFIG_TARGET|CONFIG_PACKAGE_(luci-app-daed|daed))' .config | head -60
 
-      - name: Download sources
+      - name: 下载软件包源码
         working-directory: /workdir/openwrt
         run: |
           for attempt in 1 2 3; do
@@ -128,7 +128,7 @@ jobs:
           find dl -size -1024c -type f -print -delete
           test -z "$(find dl -size -1024c -type f -print -quit)"
 
-      - name: Compile firmware
+      - name: 编译固件
         id: compile
         working-directory: /workdir/openwrt
         env:
@@ -152,7 +152,7 @@ jobs:
           if [ -s DEVICE_NAME ]; then echo "DEVICE_NAME=_$(cat DEVICE_NAME)" >> "$GITHUB_ENV"; fi
           echo "FILE_DATE=_$(date +'%Y%m%d%H%M')" >> "$GITHUB_ENV"
 
-      - name: Upload build log
+      - name: 上传编译日志
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -160,7 +160,7 @@ jobs:
           path: build.log
           if-no-files-found: ignore
 
-      - name: Organize firmware
+      - name: 整理固件
         id: organize
         if: steps.compile.outputs.status == 'success'
         run: |
@@ -168,14 +168,14 @@ jobs:
           rm -rf packages
           echo "FIRMWARE=$PWD" >> "$GITHUB_ENV"
 
-      - name: Upload firmware artifact
+      - name: 上传固件文件
         if: steps.organize.outcome == 'success'
         uses: actions/upload-artifact@v4
         with:
           name: Custom_OpenWrt_firmware${{ env.DEVICE_NAME }}${{ env.FILE_DATE }}
           path: ${{ env.FIRMWARE }}
 
-      - name: Publish release
+      - name: 发布固件版本
         if: steps.organize.outcome == 'success' && inputs.upload_release
         uses: softprops/action-gh-release@v2
         with:

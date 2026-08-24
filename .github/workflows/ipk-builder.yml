@@ -1,4 +1,4 @@
-name: Build IPK Packages
+name: 单独编译 IPK 软件包
 
 on:
   workflow_dispatch:
@@ -24,10 +24,10 @@ jobs:
     permissions:
       contents: read
     steps:
-      - name: Checkout configuration
+      - name: 检出仓库配置
         uses: actions/checkout@v4
 
-      - name: Install build dependencies
+      - name: 安装编译依赖
         env:
           DEBIAN_FRONTEND: noninteractive
         run: |
@@ -44,13 +44,13 @@ jobs:
             vim wget xsltproc zlib1g-dev
           sudo timedatectl set-timezone "$TZ"
 
-      - name: Clone source
+      - name: 获取源码
         working-directory: /workdir
         run: |
           rm -rf /workdir/openwrt
           git clone --depth=1 --single-branch --branch "$REPO_BRANCH" "$REPO_URL" /workdir/openwrt
 
-      - name: Update feeds and apply package config
+      - name: 更新软件源并应用软件包配置
         env:
           PACKAGE_CONFIG: ${{ inputs.package_config }}
         run: |
@@ -70,7 +70,7 @@ jobs:
           sed -E 's/^CONFIG_PACKAGE_([^=]+)=[ym]$/\1/' selected-packages.config > selected-packages.txt
           cat selected-packages.txt
 
-      - name: Download package sources
+      - name: 下载软件包源码
         working-directory: /workdir/openwrt
         run: |
           for attempt in 1 2 3; do
@@ -80,7 +80,7 @@ jobs:
           done
           find dl -size -1024c -type f -print -delete
 
-      - name: Compile selected IPK packages
+      - name: 编译选中的 IPK 软件包
         working-directory: /workdir/openwrt
         env:
           REQUESTED_JOBS: ${{ inputs.build_jobs }}
@@ -106,7 +106,7 @@ jobs:
             make "$target/compile" -j"$jobs" 2>&1 | tee -a "$GITHUB_WORKSPACE/ipk-build.log"
           done < selected-packages.txt
 
-      - name: Upload IPK packages
+      - name: 上传 IPK 软件包
         if: always()
         uses: actions/upload-artifact@v4
         with:

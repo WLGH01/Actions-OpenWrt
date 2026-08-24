@@ -10,7 +10,7 @@
 # See /LICENSE for more information.
 #
 
-name: Update Checker
+name: 源码更新检查
 
 env:
   REPO_URL: https://github.com/coolsnowwolf/lede
@@ -27,32 +27,32 @@ jobs:
 
     steps:
 
-    - name: Get Commit Hash
+    - name: 获取源码提交哈希
       id: getHash
       run: |
         git clone --depth 1 $REPO_URL -b $REPO_BRANCH .
         echo "commitHash=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
 
-    - name: Compare Commit Hash
+    - name: 比较源码提交哈希
       id: cacheHash
       uses: actions/cache@v3
       with:
         path: .commitHash
         key: commitHash_${{ steps.getHash.outputs.commitHash }}
 
-    - name: Save New Commit Hash
+    - name: 保存新的提交哈希
       if: steps.cacheHash.outputs.cache-hit != 'true'
       run: |
         echo ${{ steps.getHash.outputs.commitHash }} | tee .commitHash
 
-    - name: Trigger build
+    - name: 触发固件编译
       if: steps.cacheHash.outputs.cache-hit != 'true'
       uses: peter-evans/repository-dispatch@v2
       with:
         token: ${{ github.token }}
         event-type: Source Code Update
 
-    - name: Delete workflow runs
+    - name: 删除旧的工作流运行记录
       uses: Mattraks/delete-workflow-runs@v2
       with:
         retain_days: 0
