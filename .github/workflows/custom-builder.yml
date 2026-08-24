@@ -23,7 +23,7 @@ on:
         description: 是否发布 GitHub Release
         required: true
         type: boolean
-        default: false
+        default: true
       build_jobs:
         description: 编译并发数，留空使用逻辑线程数减 2
         required: false
@@ -191,11 +191,18 @@ jobs:
     steps:
       - name: 整理输出目录
         run: |
-          cd /workdir/openwrt/bin/targets/*/*
-          # 保留 packages、build_dir、staging_dir、dl 等缓存和编译产物。
+          set -e
+          target_dir=$(ls -d /workdir/openwrt/bin/targets/*/* 2>/dev/null | head -1)
+          if [ -z "$target_dir" ]; then
+            echo '未找到固件输出目录，跳过整理。'
+            exit 0
+          fi
+          cd "$target_dir"
+          echo "固件目录: $PWD"
           rm -rf "$GITHUB_WORKSPACE/firmware"
           mkdir -p "$GITHUB_WORKSPACE/firmware"
           cp -a . "$GITHUB_WORKSPACE/firmware/"
+          ls -lh "$GITHUB_WORKSPACE/firmware/"
 
   upload_log:
     name: 上传编译日志
