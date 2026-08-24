@@ -46,7 +46,17 @@
 
 工作流文件位于：[` .github/workflows/openwrt-builder.yml`](.github/workflows/openwrt-builder.yml)。
 
-## 编译策略
+## DIY 脚本说明
+
+仓库中的 [`diy-part1.sh`](diy-part1.sh) 和 [`diy-part2.sh`](diy-part2.sh) 是原模板遗留的自定义脚本：
+
+- `diy-part1.sh`：原本在更新 feeds 前执行，会额外添加 `kenzo`、`small`、`helloworld`、`modem`、`passwall`、`qmodem` 等第三方源，替换部分软件包，并尝试替换 Golang 工具链。
+- `diy-part2.sh`：原本在载入配置后执行，会把默认 LAN 地址从 `192.168.1.1` 改为 `192.168.10.1`。
+
+当前的 [`openwrt-builder.yml`](.github/workflows/openwrt-builder.yml) 和 [`custom-builder.yml`](.github/workflows/custom-builder.yml) **不会调用这两个脚本**，而是直接使用仓库中的 [`feeds.conf.default`](feeds.conf.default) 和 [`.config`](.config)。这样可以避免旧脚本重复添加 feeds，并避免其中针对特定 ARM 设备的硬件 PWM 命令影响 x86_64 编译。
+
+如果后续需要启用 DIY 脚本，应先确认第三方 feeds 与 ImmortalWrt 24.10 兼容，再在工作流中显式增加脚本执行步骤。
+
 
 - 源码和 feeds 下载失败时自动重试 3 次。
 - 编译并发使用 Runner 逻辑 CPU 数减 2，至少保留 1 个并发任务。
