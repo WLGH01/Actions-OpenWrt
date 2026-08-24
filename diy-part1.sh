@@ -9,6 +9,9 @@ sed -i '2i src-git small https://github.com/kenzok8/small' feeds.conf.default
 # Remove packages replaced by the kenzok8/small feed, then use its
 # matching Go toolchain as documented by the feed.
 ./scripts/feeds update -a
+# daed and luci-app-daed come from the dedicated QiuSimons feed below.
+# Remove duplicate copies from kenzok8/small to avoid package conflicts.
+rm -rf feeds/small/daed feeds/small/luci-app-daed
 rm -rf feeds/luci/applications/luci-app-mosdns
 rm -rf feeds/packages/net/{alist,adguardhome,mosdns,xray*,v2ray*,sing*,smartdns}
 rm -rf feeds/packages/utils/v2dat
