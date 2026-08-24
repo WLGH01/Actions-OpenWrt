@@ -1,4 +1,4 @@
-name: OpenWrt Builder
+name: OpenWrt 固件编译
 
 on:
   workflow_dispatch:
@@ -12,143 +12,162 @@ env:
   REPO_BRANCH: openwrt-24.10
   FEEDS_CONF: feeds.conf.default
   CONFIG_FILE: .config
-  UPLOAD_BIN_DIR: false
-  UPLOAD_FIRMWARE: true
-  UPLOAD_RELEASE: true
   TZ: Asia/Shanghai
 
 jobs:
-  build:
-    runs-on: ubuntu-22.04
-    timeout-minutes: 360
+  检出配置:
+    name: 检出配置
+    runs-on: self-hosted
     steps:
-      - name: Checkout configuration
+      - name: 检出仓库配置
         uses: actions/checkout@v4
 
-      - name: Initialize build environment
+  准备环境:
+    name: 准备编译环境
+    needs: 检出配置
+    runs-on: self-hosted
+    steps:
+      - name: 安装编译依赖
         env:
           DEBIAN_FRONTEND: noninteractive
         run: |
-          sudo rm -rf /usr/local/lib/android /opt/ghc /usr/share/dotnet /opt/hostedtoolcache/CodeQL
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            ack antlr3 asciidoc autoconf automake autopoint binutils bison \
-            build-essential bzip2 ccache cmake cpio curl device-tree-compiler \
-            fastjar flex gawk gettext gcc-multilib g++-multilib git gperf \
-            help2man intltool libc6-dev-i386 libelf-dev libfuse-dev \
-            libglib2.0-dev libgmp3-dev libltdl-dev libmpc-dev libmpfr-dev \
-            libncurses5-dev libncursesw5-dev libpython3-dev libreadline-dev \
-            libssl-dev libtool make ninja-build p7zip-full patch pkgconf \
-            python3 python3-pyelftools python3-setuptools qemu-utils rsync \
-            scons squashfs-tools subversion swig texinfo unzip vim wget \
-            xsltproc zlib1g-dev
+            ack asciidoc autoconf automake autopoint binutils bison build-essential \
+            bzip2 ccache cmake cpio curl device-tree-compiler fastjar flex gawk gettext \
+            gcc-multilib g++-multilib git gperf help2man intltool libc6-dev-i386 \
+            libelf-dev libfuse-dev libglib2.0-dev libgmp3-dev libltdl-dev libmpc-dev \
+            libmpfr-dev libncurses5-dev libncursesw5-dev libpython3-dev libreadline-dev \
+            libssl-dev libtool make ninja-build p7zip-full patch pkgconf python3 \
+            python3-pyelftools python3-setuptools qemu-utils rsync scons \
+            squashfs-tools subversion swig texinfo unzip vim wget xsltproc zlib1g-dev
           sudo timedatectl set-timezone "$TZ"
           mkdir -p /workdir
-          sudo chown "$USER:$GROUPS" /workdir
-          df -hT
 
-      - name: Clone ImmortalWrt
+  获取源码:
+    name: 获取 ImmortalWrt 源码
+    needs: 准备环境
+    runs-on: self-hosted
+    steps:
+      - name: 克隆或更新源码
         run: |
-          rm -rf "$GITHUB_WORKSPACE/openwrt"
-          git clone --depth=1 --single-branch --branch "$REPO_BRANCH" "$REPO_URL" "$GITHUB_WORKSPACE/openwrt"
+          if [ -d /workdir/openwrt/.git ]; then
+            cd /workdir/openwrt
+            git remote set-url origin "$REPO_URL"
+            git fetch --depth=1 origin "$REPO_BRANCH"
+            git checkout -B "$REPO_BRANCH" "origin/$REPO_BRANCH"
+            git reset --hard "origin/$REPO_BRANCH"
+            git clean -fdx
+          else
+            rm -rf /workdir/openwrt
+            git clone --depth=1 --single-branch --branch "$REPO_BRANCH" "$REPO_URL" /workdir/openwrt
+          fi
 
-      - name: Load and update feeds
+  更新软件源:
+    name: 更新并安装 feeds
+    needs: 获取源码
+    runs-on: self-hosted
+    steps:
+      - name: 执行 diy-part1 并更新 feeds
         run: |
-          cp "$FEEDS_CONF" openwrt/feeds.conf.default
-          chmod +x diy-part1.sh diy-part2.sh
-          cd openwrt
+          cp "$GITHUB_WORKSPACE/$FEEDS_CONF" /workdir/openwrt/feeds.conf.default
+          chmod +x "$GITHUB_WORKSPACE/diy-part1.sh" "$GITHUB_WORKSPACE/diy-part2.sh"
+          cd /workdir/openwrt
           "$GITHUB_WORKSPACE/diy-part1.sh"
           ./scripts/feeds update -a
           ./scripts/feeds install -a
 
-      - name: Load configuration
+  配置系统:
+    name: 配置系统和插件
+    needs: 更新软件源
+    runs-on: self-hosted
+    steps:
+      - name: 应用 .config 和 diy-part2
         run: |
-          cp "$CONFIG_FILE" openwrt/.config
-          cd openwrt
+          cp "$GITHUB_WORKSPACE/$CONFIG_FILE" /workdir/openwrt/.config
+          cd /workdir/openwrt
           make defconfig
           "$GITHUB_WORKSPACE/diy-part2.sh"
-          grep -q '^CONFIG_TARGET_x86_64_DEVICE_generic=y' .config || { echo 'x86_64 generic target is required'; exit 1; }
-          if grep -q '^CONFIG_PACKAGE_luci-app-daed=y' .config; then
-            grep -q '^CONFIG_PACKAGE_daed=y' .config || { echo 'luci-app-daed is enabled but daed is missing'; exit 1; }
-          fi
+          grep -q '^CONFIG_TARGET_x86_64_DEVICE_generic=y' .config
           grep -E '^(CONFIG_TARGET|CONFIG_PACKAGE_(luci-app-daed|daed|vmlinux-btf))' .config | head -60
 
-      - name: Download sources with retries
-        working-directory: /workdir/openwrt
+  下载源码:
+    name: 下载软件包源码
+    needs: 配置系统
+    runs-on: self-hosted
+    steps:
+      - name: 下载并检查源码
         run: |
+          cd /workdir/openwrt
           for attempt in 1 2 3; do
-            if make download -j2; then
-              break
-            fi
-            echo "Download attempt $attempt failed; retrying..."
+            if make download -j2; then break; fi
+            if [ "$attempt" = 3 ]; then exit 1; fi
+            echo "第 $attempt 次下载失败，15 秒后重试"
             sleep 15
-            if [ "$attempt" = 3 ]; then
-              echo "Source download failed after 3 attempts."
-              exit 1
-            fi
           done
           find dl -size -1024c -type f -print -delete
           test -z "$(find dl -size -1024c -type f -print -quit)"
 
-      - name: Compile firmware
-        id: compile
-        working-directory: /workdir/openwrt
+  编译固件:
+    name: 编译固件
+    needs: 下载源码
+    runs-on: self-hosted
+    steps:
+      - name: 编译并保存日志
         run: |
           set -o pipefail
+          cd /workdir/openwrt
           threads="$(nproc)"
-          if [ "$threads" -gt 2 ]; then
-            threads=$((threads - 2))
-          else
-            threads=1
+          if [ "$threads" -gt 2 ]; then threads=$((threads - 2)); else threads=1; fi
+          echo "使用 $threads 个编译线程"
+          if ! make -j"$threads" 2>&1 | tee "$GITHUB_WORKSPACE/build.log"; then
+            echo '并行编译失败，开始单线程重试'
+            make -j1 2>&1 | tee -a "$GITHUB_WORKSPACE/build.log"
           fi
-          echo "Using $threads build threads ($(nproc) CPU cores minus 2)"
-          if make -j"$threads" 2>&1 | tee "$GITHUB_WORKSPACE/build.log"; then
-            :
-          else
-            echo 'Parallel build failed; retrying single-threaded. Detailed output is in build.log.'
-            if ! make -j1 2>&1 | tee -a "$GITHUB_WORKSPACE/build.log"; then
-              echo 'Single-threaded build failed.'
-              exit 1
-            fi
-          fi
-          echo "status=success" >> "$GITHUB_OUTPUT"
-          grep '^CONFIG_TARGET.*DEVICE.*=y' .config | sed -r 's/.*DEVICE_(.*)=y/\1/' > DEVICE_NAME
-          if [ -s DEVICE_NAME ]; then echo "DEVICE_NAME=_$(cat DEVICE_NAME)" >> "$GITHUB_ENV"; fi
-          echo "FILE_DATE=_$(date +'%Y%m%d%H%M')" >> "$GITHUB_ENV"
 
-      - name: Upload build log
-        if: always()
+  整理固件:
+    name: 整理固件
+    needs: 编译固件
+    runs-on: self-hosted
+    steps:
+      - name: 整理输出目录
+        run: |
+          cd /workdir/openwrt/bin/targets/*/*
+          rm -rf packages
+          mkdir -p "$GITHUB_WORKSPACE/firmware"
+          rm -rf "$GITHUB_WORKSPACE/firmware"/*
+          cp -a . "$GITHUB_WORKSPACE/firmware/"
+
+  上传日志:
+    name: 上传编译日志
+    if: always()
+    needs: [编译固件]
+    runs-on: self-hosted
+    steps:
+      - name: 上传 build.log
         uses: actions/upload-artifact@v4
         with:
           name: openwrt-build-log
           path: build.log
           if-no-files-found: ignore
 
-      - name: Organize firmware
-        id: organize
-        if: steps.compile.outputs.status == 'success' && env.UPLOAD_FIRMWARE == 'true'
-        run: |
-          cd openwrt/bin/targets/*/*
-          rm -rf packages
-          echo "FIRMWARE=$PWD" >> "$GITHUB_ENV"
-          echo "status=success" >> "$GITHUB_OUTPUT"
-
-      - name: Upload firmware artifact
-        if: steps.organize.outputs.status == 'success'
+  上传固件:
+    name: 上传固件 Artifact
+    needs: 整理固件
+    runs-on: self-hosted
+    steps:
+      - name: 上传固件
         uses: actions/upload-artifact@v4
         with:
-          name: OpenWrt_firmware${{ env.DEVICE_NAME }}${{ env.FILE_DATE }}
-          path: ${{ env.FIRMWARE }}
+          name: OpenWrt_firmware_x86_64
+          path: firmware
 
-      - name: Publish release
-        if: steps.organize.outputs.status == 'success' && env.UPLOAD_RELEASE == 'true'
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ env.FILE_DATE }}
-          generate_release_notes: true
-          files: ${{ env.FIRMWARE }}/*
-
-      - name: Cleanup build workspace
-        if: always()
+  清理环境:
+    name: 清理编译环境
+    if: always()
+    needs: [上传固件, 上传日志]
+    runs-on: self-hosted
+    steps:
+      - name: 清理源码和临时输出
         run: |
-          rm -rf "$GITHUB_WORKSPACE/openwrt" /workdir/openwrt
+          rm -rf /workdir/openwrt "$GITHUB_WORKSPACE/firmware" "$GITHUB_WORKSPACE/build.log"
