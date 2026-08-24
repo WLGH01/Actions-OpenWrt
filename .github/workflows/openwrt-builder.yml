@@ -48,23 +48,9 @@ jobs:
           df -hT
 
       - name: Clone ImmortalWrt
-        working-directory: /workdir
         run: |
-          if [ -d /workdir/openwrt/.git ]; then
-            cd /workdir/openwrt
-            git remote set-url origin "$REPO_URL"
-            git fetch --depth=1 origin "$REPO_BRANCH"
-            git checkout -B "$REPO_BRANCH" "origin/$REPO_BRANCH"
-            git reset --hard "origin/$REPO_BRANCH"
-            git clean -fdx
-          elif [ -e /workdir/openwrt ]; then
-            rm -rf /workdir/openwrt
-            git clone --depth=1 --single-branch --branch "$REPO_BRANCH" "$REPO_URL" /workdir/openwrt
-          else
-            git clone --depth=1 --single-branch --branch "$REPO_BRANCH" "$REPO_URL" /workdir/openwrt
-          fi
           rm -rf "$GITHUB_WORKSPACE/openwrt"
-          ln -s /workdir/openwrt "$GITHUB_WORKSPACE/openwrt"
+          git clone --depth=1 --single-branch --branch "$REPO_BRANCH" "$REPO_URL" "$GITHUB_WORKSPACE/openwrt"
 
       - name: Load and update feeds
         run: |
@@ -161,3 +147,8 @@ jobs:
           tag_name: ${{ env.FILE_DATE }}
           generate_release_notes: true
           files: ${{ env.FIRMWARE }}/*
+
+      - name: Cleanup build workspace
+        if: always()
+        run: |
+          rm -rf "$GITHUB_WORKSPACE/openwrt" /workdir/openwrt
