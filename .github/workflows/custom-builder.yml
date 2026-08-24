@@ -185,8 +185,8 @@ jobs:
 
   organize:
     name: 整理固件
-    needs: parallel_compile
-    if: always() && needs.parallel_compile.result == 'success'
+    needs: [parallel_compile, single_compile]
+    if: always() && (needs.parallel_compile.result == 'success' || needs.single_compile.result == 'success')
     runs-on: self-hosted
     steps:
       - name: 整理输出目录
@@ -207,7 +207,7 @@ jobs:
   upload_log:
     name: 上传编译日志
     if: always()
-    needs: parallel_compile
+    needs: [parallel_compile, single_compile]
     runs-on: self-hosted
     steps:
       - name: 上传 build.log
