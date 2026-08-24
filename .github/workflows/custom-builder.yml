@@ -28,6 +28,10 @@ on:
         description: Build jobs; leave empty to use logical CPUs minus 2
         required: false
         default: ""
+      rootfs_size:
+        description: Root filesystem size in MiB
+        required: true
+        default: "5120"
 
 env:
   TZ: Asia/Shanghai
@@ -104,6 +108,8 @@ jobs:
           test -s "$CONFIG_FILE"
           cp "$CONFIG_FILE" openwrt/.config
           cd openwrt
+          case "${{ inputs.rootfs_size }}" in (*[!0-9]*|0) echo 'Invalid rootfs_size'; exit 1;; esac
+          sed -i "s/^CONFIG_TARGET_ROOTFS_PARTSIZE=.*/CONFIG_TARGET_ROOTFS_PARTSIZE=${{ inputs.rootfs_size }}/" .config
           make defconfig
           "$GITHUB_WORKSPACE/diy-part2.sh"
           grep -E '^(CONFIG_TARGET|CONFIG_PACKAGE_(luci-app-daed|daed))' .config | head -60
