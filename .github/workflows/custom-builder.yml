@@ -233,18 +233,13 @@ jobs:
 
   release:
     name: 发布固件版本
-    needs: upload_firmware
+    needs: organize
     if: inputs.upload_release == true
     runs-on: self-hosted
     steps:
-      - name: 下载固件 Artifact
-        uses: actions/download-artifact@v5
-        with:
-          name: Custom_OpenWrt_firmware
-          path: firmware
-      - name: 发布 GitHub Release
+      - name: 发布固件到 GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: custom-${{ github.run_number }}
           generate_release_notes: true
-          files: firmware/*
+          files: ${{ github.workspace }}/firmware/*
