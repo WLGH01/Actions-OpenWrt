@@ -145,8 +145,8 @@ jobs:
             echo "第 $attempt 次下载失败，15 秒后重试"
             sleep 15
           done
-          find dl -size -1024c -type f -print -delete
-          test -z "$(find dl -size -1024c -type f -print -quit)"
+          find dl -maxdepth 1 -size -1024c -type f -print -delete
+          test -z "$(find dl -maxdepth 1 -size -1024c -type f -print -quit)"
 
   parallel_compile:
     name: 并行编译固件
