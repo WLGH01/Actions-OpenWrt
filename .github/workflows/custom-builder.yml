@@ -173,16 +173,13 @@ jobs:
   single_compile:
     name: 单线程编译固件
     needs: parallel_compile
+    if: always() && needs.parallel_compile.result == 'failure'
     runs-on: self-hosted
     steps:
       - name: 执行单线程编译
         run: |
           set -o pipefail
           cd ~/workdir/openwrt
-          if [ "${{ needs.parallel_compile.result }}" != "failure" ]; then
-            echo '并行编译已成功，跳过单线程编译。'
-            exit 0
-          fi
           echo '并行编译失败，开始单线程编译'
           make -j1 V=s 2>&1 | tee -a "$GITHUB_WORKSPACE/build.log"
 
