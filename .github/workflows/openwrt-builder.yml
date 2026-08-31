@@ -225,7 +225,7 @@ jobs:
   upload_firmware:
     name: 上传固件 Artifact
     needs: organize
-    if: needs.organize.result == 'success'
+    if: always() && needs.organize.result == 'success'
     runs-on: self-hosted
     steps:
       - name: 上传固件
@@ -237,7 +237,7 @@ jobs:
   release:
     name: 发布 GitHub Release
     needs: upload_firmware
-    if: needs.upload_firmware.result == 'success' && inputs.upload_release == true
+    if: always() && needs.upload_firmware.result == 'success' && inputs.upload_release == true
     runs-on: self-hosted
     steps:
       - name: 下载固件 Artifact
