@@ -108,7 +108,7 @@ IPK Builder 会加载根目录 `.config` 作为基础配置，再追加 `ipk.con
 
 在载入 `.config` 并执行 `make defconfig` 后执行：
 
-- 将默认 LAN 地址从 `192.168.1.1` 修改为 `192.168.10.1`。
+- 将默认 LAN 地址从 `192.168.1.1` 修改为 `192.168.3.1`。
 
 两个固件 Builder 都会调用这两个脚本；IPK Builder 也会调用 `diy-part1.sh` 以获得相同的软件包源。
 
@@ -137,7 +137,7 @@ IPK Builder 会加载根目录 `.config` 作为基础配置，再追加 `ipk.con
 固件编译后默认 LAN 地址为：
 
 ```text
-192.168.10.1
+192.168.3.1
 ```
 
 ### daed 的 BTF 依赖
