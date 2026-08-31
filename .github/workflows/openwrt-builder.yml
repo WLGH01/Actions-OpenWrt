@@ -79,7 +79,7 @@ jobs:
             python3-pyelftools python3-setuptools qemu-utils rsync scons \
             squashfs-tools subversion swig texinfo unzip vim wget xsltproc zlib1g-dev
           sudo timedatectl set-timezone "$TZ"
-          mkdir -p /workdir
+          mkdir -p ~/workdir
 
   source:
     name: 获取 ImmortalWrt 源码
@@ -88,16 +88,16 @@ jobs:
     steps:
       - name: 克隆或更新源码
         run: |
-          if [ -d /workdir/openwrt/.git ]; then
-            cd /workdir/openwrt
+          if [ -d ~/workdir/openwrt/.git ]; then
+            cd ~/workdir/openwrt
             git remote set-url origin "$REPO_URL"
             git fetch --depth=1 origin "$REPO_BRANCH"
             git checkout -B "$REPO_BRANCH" "origin/$REPO_BRANCH"
             git reset --hard "origin/$REPO_BRANCH"
             git clean -fdx
           else
-            rm -rf /workdir/openwrt
-            git clone --depth=1 --single-branch --branch "$REPO_BRANCH" "$REPO_URL" /workdir/openwrt
+            rm -rf ~/workdir/openwrt
+            git clone --depth=1 --single-branch --branch "$REPO_BRANCH" "$REPO_URL" ~/workdir/openwrt
           fi
 
   feeds:
@@ -107,9 +107,9 @@ jobs:
     steps:
       - name: 执行 diy-part1 并更新 feeds
         run: |
-          cp "$GITHUB_WORKSPACE/$FEEDS_CONF" /workdir/openwrt/feeds.conf.default
+          cp "$GITHUB_WORKSPACE/$FEEDS_CONF" ~/workdir/openwrt/feeds.conf.default
           chmod +x "$GITHUB_WORKSPACE/diy-part1.sh" "$GITHUB_WORKSPACE/diy-part2.sh"
-          cd /workdir/openwrt
+          cd ~/workdir/openwrt
           "$GITHUB_WORKSPACE/diy-part1.sh"
           ./scripts/feeds update -a
           ./scripts/feeds install -a
@@ -122,8 +122,8 @@ jobs:
       - name: 应用 .config 和 diy-part2
         run: |
           test -s "$GITHUB_WORKSPACE/$CONFIG_FILE"
-          cp "$GITHUB_WORKSPACE/$CONFIG_FILE" /workdir/openwrt/.config
-          cd /workdir/openwrt
+          cp "$GITHUB_WORKSPACE/$CONFIG_FILE" ~/workdir/openwrt/.config
+          cd ~/workdir/openwrt
           case "$ROOTFS_SIZE" in (*[!0-9]*|0) echo 'RootFS 大小无效'; exit 1;; esac
           sed -i "s/^CONFIG_TARGET_ROOTFS_PARTSIZE=.*/CONFIG_TARGET_ROOTFS_PARTSIZE=$ROOTFS_SIZE/" .config
           make defconfig
@@ -138,7 +138,7 @@ jobs:
     steps:
       - name: 下载并检查源码
         run: |
-          cd /workdir/openwrt
+          cd ~/workdir/openwrt
           for attempt in 1 2 3; do
             if make download -j2; then break; fi
             if [ "$attempt" = 3 ]; then exit 1; fi
@@ -156,7 +156,7 @@ jobs:
       - name: 执行并行编译
         run: |
           set -o pipefail
-          cd /workdir/openwrt
+          cd ~/workdir/openwrt
           if [ -n "$BUILD_JOBS" ]; then
             threads="$BUILD_JOBS"
           else
@@ -176,7 +176,7 @@ jobs:
       - name: 执行单线程编译
         run: |
           set -o pipefail
-          cd /workdir/openwrt
+          cd ~/workdir/openwrt
           echo '并行编译失败，开始单线程编译'
           make -j1 V=s 2>&1 | tee -a "$GITHUB_WORKSPACE/build.log"
 
@@ -189,7 +189,7 @@ jobs:
       - name: 整理输出目录
         run: |
           set -e
-          target_dir=$(ls -d /workdir/openwrt/bin/targets/*/* 2>/dev/null | head -1)
+          target_dir=$(ls -d ~/workdir/openwrt/bin/targets/*/* 2>/dev/null | head -1)
           if [ -z "$target_dir" ]; then
             echo '未找到固件输出目录，跳过整理。'
             exit 0
@@ -252,4 +252,4 @@ jobs:
     steps:
       - name: 清理源码和临时输出
         run: |
-          rm -rf /workdir/openwrt "$GITHUB_WORKSPACE/firmware" "$GITHUB_WORKSPACE/build.log"
+          rm -rf ~/workdir/openwrt "$GITHUB_WORKSPACE/firmware" "$GITHUB_WORKSPACE/build.log"
