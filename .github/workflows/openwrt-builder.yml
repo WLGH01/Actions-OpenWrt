@@ -263,4 +263,4 @@ jobs:
           rm -rf ~/workdir/openwrt "$GITHUB_WORKSPACE/firmware" "$GITHUB_WORKSPACE/build.log"
       - name: 释放残留进程和内存
         run: |
-          killall -9 make gcc g++ cc1 cc1plus rustc clang ld 2>/dev/null || true
+          pkill -9 -f "make|gcc|g\+\+|cc1|cc1plus|rustc|clang|ld" 2>/dev/null || true
