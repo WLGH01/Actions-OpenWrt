@@ -222,40 +222,23 @@ jobs:
           path: build.log
           if-no-files-found: ignore
 
-  upload_firmware:
-    name: 上传固件 Artifact
-    needs: organize
-    if: always() && needs.organize.result == 'success'
-    runs-on: self-hosted
-    steps:
-      - name: 上传固件
-        uses: actions/upload-artifact@v5
-        with:
-          name: OpenWrt_firmware_x86_64
-          path: firmware
-
   release:
     name: 发布 GitHub Release
-    needs: upload_firmware
-    if: always() && needs.upload_firmware.result == 'success' && inputs.upload_release == true
+    needs: organize
+    if: always() && needs.organize.result == 'success' && inputs.upload_release == true
     runs-on: self-hosted
     steps:
-      - name: 下载固件 Artifact
-        uses: actions/download-artifact@v5
-        with:
-          name: OpenWrt_firmware_x86_64
-          path: firmware
       - name: 发布固件版本
         uses: softprops/action-gh-release@v2
         with:
           tag_name: openwrt-${{ github.run_number }}
           generate_release_notes: true
-          files: firmware/*
+          files: ${{ github.workspace }}/firmware/*
 
   cleanup:
     name: 清理编译环境
     if: always()
-    needs: [parallel_compile, single_compile]
+    needs: [parallel_compile, single_compile, release]
     runs-on: self-hosted
     steps:
       - name: 清理源码和临时输出

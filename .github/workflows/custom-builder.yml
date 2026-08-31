@@ -225,18 +225,6 @@ jobs:
           path: build.log
           if-no-files-found: ignore
 
-  upload_firmware:
-    name: 上传固件文件
-    needs: organize
-    if: always() && needs.organize.result == 'success'
-    runs-on: self-hosted
-    steps:
-      - name: 上传固件 Artifact
-        uses: actions/upload-artifact@v5
-        with:
-          name: Custom_OpenWrt_firmware
-          path: firmware
-
   release:
     name: 发布固件版本
     needs: organize
