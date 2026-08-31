@@ -159,6 +159,10 @@ jobs:
           REQUESTED_JOBS: ${{ inputs.build_jobs }}
         run: |
           set -o pipefail
+          # 过滤 WSL 中可能存在的 Windows 相对路径或无效 PATH，防止 find -execdir 报错
+          export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+          # 强制清理上一次（如中途取消）可能残留的编译进程，防止内存和 CPU 占用
+          killall -9 make gcc g++ cc1 cc1plus rustc clang ld 2>/dev/null || true
           cd ~/workdir/openwrt
           if [ -n "$REQUESTED_JOBS" ]; then
             threads="$REQUESTED_JOBS"
@@ -179,6 +183,10 @@ jobs:
       - name: 执行单线程编译
         run: |
           set -o pipefail
+          # 过滤 WSL 中可能存在的 Windows 相对路径或无效 PATH，防止 find -execdir 报错
+          export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+          # 清理进程
+          killall -9 make gcc g++ cc1 cc1plus rustc clang ld 2>/dev/null || true
           cd ~/workdir/openwrt
           echo '并行编译失败，开始单线程编译'
           make -j1 V=s 2>&1 | tee -a "$GITHUB_WORKSPACE/build.log"
@@ -240,3 +248,13 @@ jobs:
           tag_name: custom-${{ github.run_number }}
           generate_release_notes: true
           files: ${{ github.workspace }}/firmware/*
+
+  cleanup:
+    name: 释放系统资源
+    if: always()
+    needs: [parallel_compile, single_compile]
+    runs-on: self-hosted
+    steps:
+      - name: 清理残留进程
+        run: |
+          killall -9 make gcc g++ cc1 cc1plus rustc clang ld 2>/dev/null || true
