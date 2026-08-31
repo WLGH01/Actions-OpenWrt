@@ -50,20 +50,19 @@ jobs:
           sudo timedatectl set-timezone "$TZ"
 
       - name: 获取源码
-        working-directory: /workdir
         run: |
-          if [ -d /workdir/openwrt/.git ]; then
-            cd /workdir/openwrt
+          mkdir -p ~/workdir
+          if [ -d ~/workdir/openwrt/.git ]; then
+            cd ~/workdir/openwrt
             git remote set-url origin "$REPO_URL"
             git fetch --depth=1 origin "$REPO_BRANCH"
             git checkout -B "$REPO_BRANCH" "origin/$REPO_BRANCH"
             git reset --hard "origin/$REPO_BRANCH"
-          elif [ -e /workdir/openwrt ]; then
-            echo '发现非 Git 的 /workdir/openwrt，停止且不删除。'
+          elif [ -e ~/workdir/openwrt ]; then
+            echo '发现非 Git 的 ~/workdir/openwrt，停止且不删除。'
             exit 1
           else
-            mkdir -p /workdir
-            git clone --depth=1 --single-branch --branch "$REPO_BRANCH" "$REPO_URL" /workdir/openwrt
+            git clone --depth=1 --single-branch --branch "$REPO_BRANCH" "$REPO_URL" ~/workdir/openwrt
           fi
 
       - name: 更新软件源并应用软件包配置
@@ -71,8 +70,8 @@ jobs:
           PACKAGE_CONFIG: ${{ inputs.package_config }}
         run: |
           test -s "$PACKAGE_CONFIG"
-          cp "$PACKAGE_CONFIG" /workdir/openwrt/ipk.config
-          cd /workdir/openwrt
+          cp "$PACKAGE_CONFIG" ~/workdir/openwrt/ipk.config
+          cd ~/workdir/openwrt
           cp "$GITHUB_WORKSPACE/feeds.conf.default" feeds.conf.default
           chmod +x "$GITHUB_WORKSPACE/diy-part1.sh"
           "$GITHUB_WORKSPACE/diy-part1.sh"
@@ -87,8 +86,8 @@ jobs:
           cat selected-packages.txt
 
       - name: 下载软件包源码
-        working-directory: /workdir/openwrt
         run: |
+          cd ~/workdir/openwrt
           for attempt in 1 2 3; do
             if make download -j2; then break; fi
             if [ "$attempt" = 3 ]; then exit 1; fi
@@ -97,11 +96,11 @@ jobs:
           find dl -size -1024c -type f -print -delete
 
       - name: 编译选中的 IPK 软件包
-        working-directory: /workdir/openwrt
         env:
           REQUESTED_JOBS: ${{ inputs.build_jobs }}
         run: |
           set -euo pipefail
+          cd ~/workdir/openwrt
           if [ -n "$REQUESTED_JOBS" ]; then
             jobs="$REQUESTED_JOBS"
           else
@@ -122,13 +121,24 @@ jobs:
             make "$target/compile" -j"$jobs" 2>&1 | tee -a "$GITHUB_WORKSPACE/ipk-build.log"
           done < selected-packages.txt
 
+      - name: 收集 IPK 产物
+        run: |
+          rm -rf "$GITHUB_WORKSPACE/ipk-out"
+          mkdir -p "$GITHUB_WORKSPACE/ipk-out"
+          if [ -d ~/workdir/openwrt/bin/packages ]; then
+            cp -a ~/workdir/openwrt/bin/packages/. "$GITHUB_WORKSPACE/ipk-out/"
+          fi
+          if [ -d ~/workdir/openwrt/bin/targets ]; then
+            cp -a ~/workdir/openwrt/bin/targets/. "$GITHUB_WORKSPACE/ipk-out/"
+          fi
+          find "$GITHUB_WORKSPACE/ipk-out" -name '*.ipk' | wc -l
+
       - name: 上传 IPK 软件包
         if: always()
         uses: actions/upload-artifact@v5
         with:
           name: openwrt-ipk-packages
           path: |
-            /workdir/openwrt/bin/packages/**/*.ipk
-            /workdir/openwrt/bin/targets/**/*.ipk
+            ipk-out/
             ipk-build.log
           if-no-files-found: warn
