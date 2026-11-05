@@ -32,6 +32,10 @@ on:
         description: RootFS 分区大小，单位 MiB
         required: true
         default: "5120"
+      required_packages:
+        description: 必须出现在最终 .config 中的软件包（逗号分隔）
+        required: false
+        default: "daed"
 
 concurrency:
   group: openwrt-shared-self-hosted-runner
@@ -71,7 +75,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             ack asciidoc autoconf automake autopoint binutils bison build-essential \
-            bzip2 ccache cmake cpio curl device-tree-compiler fastjar flex gawk gettext \
+            bzip2 ccache cmake cpio curl device-tree-compiler dwarves fastjar flex gawk gettext \
             gcc-multilib g++-multilib git gperf help2man intltool libc6-dev-i386 \
             libelf-dev libfuse-dev libglib2.0-dev libgmp3-dev libltdl-dev libmpc-dev \
             libmpfr-dev libncurses5-dev libncursesw5-dev libpython3-dev libreadline-dev \
@@ -125,11 +129,36 @@ jobs:
           cp "$GITHUB_WORKSPACE/$CONFIG_FILE" ~/workdir/openwrt/.config
           cd ~/workdir/openwrt
           case "$ROOTFS_SIZE" in (*[!0-9]*|0) echo 'RootFS 大小无效'; exit 1;; esac
-          sed -i "s/^CONFIG_TARGET_ROOTFS_PARTSIZE=.*/CONFIG_TARGET_ROOTFS_PARTSIZE=$ROOTFS_SIZE/" .config
+          if grep -q '^CONFIG_TARGET_ROOTFS_PARTSIZE=' .config; then
+            sed -i "s/^CONFIG_TARGET_ROOTFS_PARTSIZE=.*/CONFIG_TARGET_ROOTFS_PARTSIZE=$ROOTFS_SIZE/" .config
+          else
+            echo "CONFIG_TARGET_ROOTFS_PARTSIZE=$ROOTFS_SIZE" >> .config
+          fi
           make defconfig
           "$GITHUB_WORKSPACE/diy-part2.sh"
           grep -q '^CONFIG_TARGET_x86_64_DEVICE_generic=y' .config
           grep -E '^(CONFIG_TARGET|CONFIG_PACKAGE_(luci-app-daed|daed|vmlinux-btf))' .config | head -60
+
+      - name: 校验配置完整性
+        env:
+          CONFIG_FILE: ${{ inputs.config_file }}
+          REQUIRED_PACKAGES: ${{ inputs.required_packages }}
+        run: |
+          cd ~/workdir/openwrt
+          while IFS= read -r line; do
+            grep -qxF "$line" .config || echo "::warning::配置项未生效: $line"
+          done < <(grep -E '^CONFIG_PACKAGE_[A-Za-z0-9_.+-]+=[ym]$' "$GITHUB_WORKSPACE/$CONFIG_FILE")
+          missing=0
+          IFS=',' read -ra required <<< "$REQUIRED_PACKAGES"
+          for pkg in "${required[@]}"; do
+            pkg="$(echo "$pkg" | xargs)"
+            [ -n "$pkg" ] || continue
+            grep -qxF "CONFIG_PACKAGE_${pkg}=y" .config || {
+              echo "::error::关键软件包未生成: $pkg"
+              missing=1
+            }
+          done
+          [ "$missing" -eq 0 ]
 
   download:
     name: 下载软件包源码
@@ -199,8 +228,8 @@ jobs:
           set -e
           target_dir=$(ls -d ~/workdir/openwrt/bin/targets/*/* 2>/dev/null | head -1)
           if [ -z "$target_dir" ]; then
-            echo '未找到固件输出目录，跳过整理。'
-            exit 0
+            echo '未找到固件输出目录，编译可能未产生镜像。'
+            exit 1
           fi
           cd "$target_dir"
           echo "固件目录: $PWD"

@@ -14,8 +14,8 @@ name: 源码更新检查
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-  REPO_URL: https://github.com/coolsnowwolf/lede
-  REPO_BRANCH: master
+  REPO_URL: https://github.com/immortalwrt/immortalwrt
+  REPO_BRANCH: openwrt-24.10
 
 on:
   workflow_dispatch:
