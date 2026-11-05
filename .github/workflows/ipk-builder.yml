@@ -1,4 +1,4 @@
-name: 单独编译 IPK 软件包
+﻿name: 鍗曠嫭缂栬瘧 IPK 杞欢鍖?
 
 on:
   workflow_dispatch:
@@ -29,17 +29,17 @@ jobs:
     permissions:
       contents: read
     steps:
-      - name: 检出仓库配置
+      - name: 妫€鍑轰粨搴撻厤缃?
         uses: actions/checkout@v5
 
-      - name: 安装编译依赖
+      - name: 瀹夎缂栬瘧渚濊禆
         env:
           DEBIAN_FRONTEND: noninteractive
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             ack asciidoc autoconf automake autopoint binutils bison build-essential \
-            bzip2 ccache cmake cpio curl device-tree-compiler fastjar flex gawk \
+            bzip2 ccache cmake cpio curl device-tree-compiler dwarves fastjar flex gawk \
             gettext gcc-multilib g++-multilib git gperf help2man intltool \
             libc6-dev-i386 libelf-dev libfuse-dev libglib2.0-dev libgmp3-dev \
             libltdl-dev libmpc-dev libmpfr-dev libncurses5-dev libncursesw5-dev \
@@ -49,7 +49,7 @@ jobs:
             vim wget xsltproc zlib1g-dev
           sudo timedatectl set-timezone "$TZ"
 
-      - name: 获取源码
+      - name: 鑾峰彇婧愮爜
         run: |
           mkdir -p ~/workdir
           if [ -d ~/workdir/openwrt/.git ]; then
@@ -59,13 +59,13 @@ jobs:
             git checkout -B "$REPO_BRANCH" "origin/$REPO_BRANCH"
             git reset --hard "origin/$REPO_BRANCH"
           elif [ -e ~/workdir/openwrt ]; then
-            echo '发现非 Git 的 ~/workdir/openwrt，停止且不删除。'
+            echo '鍙戠幇闈?Git 鐨?~/workdir/openwrt锛屽仠姝笖涓嶅垹闄ゃ€?
             exit 1
           else
             git clone --depth=1 --single-branch --branch "$REPO_BRANCH" "$REPO_URL" ~/workdir/openwrt
           fi
 
-      - name: 更新软件源并应用软件包配置
+      - name: 鏇存柊杞欢婧愬苟搴旂敤杞欢鍖呴厤缃?
         env:
           PACKAGE_CONFIG: ${{ inputs.package_config }}
         run: |
@@ -85,7 +85,7 @@ jobs:
           sed -E 's/^CONFIG_PACKAGE_([^=]+)=[ym]$/\1/' selected-packages.config > selected-packages.txt
           cat selected-packages.txt
 
-      - name: 下载软件包源码
+      - name: 涓嬭浇杞欢鍖呮簮鐮?
         run: |
           cd ~/workdir/openwrt
           for attempt in 1 2 3; do
@@ -95,7 +95,7 @@ jobs:
           done
           find dl -size -1024c -type f -print -delete
 
-      - name: 编译选中的 IPK 软件包
+      - name: 缂栬瘧閫変腑鐨?IPK 杞欢鍖?
         env:
           REQUESTED_JOBS: ${{ inputs.build_jobs }}
         run: |
@@ -121,7 +121,7 @@ jobs:
             make "$target/compile" -j"$jobs" 2>&1 | tee -a "$GITHUB_WORKSPACE/ipk-build.log"
           done < selected-packages.txt
 
-      - name: 收集 IPK 产物
+      - name: 鏀堕泦 IPK 浜х墿
         run: |
           rm -rf "$GITHUB_WORKSPACE/ipk-out"
           mkdir -p "$GITHUB_WORKSPACE/ipk-out"
@@ -133,7 +133,7 @@ jobs:
           fi
           find "$GITHUB_WORKSPACE/ipk-out" -name '*.ipk' | wc -l
 
-      - name: 上传 IPK 软件包
+      - name: 涓婁紶 IPK 杞欢鍖?
         if: always()
         uses: actions/upload-artifact@v5
         with:
