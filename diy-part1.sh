@@ -22,9 +22,6 @@ rm -rf feeds/packages/lang/golang
 git clone --depth=1 --single-branch --branch 1.27 \
   https://github.com/kenzok8/golang feeds/packages/lang/golang
 
-# Local packages: honk (prebuilt upstream release) and its LuCI apps.
-# Building honk from source needs rustup + nightly Rust + bpf-linker on the
-# host, so the verified upstream musl release is packaged instead.
 if [ -d "$GITHUB_WORKSPACE/custom-packages" ]; then
   cp -a "$GITHUB_WORKSPACE/custom-packages/." package/
 fi
