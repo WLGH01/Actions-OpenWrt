@@ -18,3 +18,12 @@ sed -i 's/192.168.1.1/192.168.3.1/g' package/base-files/files/bin/config_generat
 
 # Modify hostname
 #sed -i 's/OpenWrt/P3TERX-Router/g' package/base-files/files/bin/config_generate
+
+# tuic-client 打包修复：kenzok8/small 用的是上游预编译 musl 二进制，
+# 2.0.0-dev10 起该二进制动态依赖 libstdc++.so.6，但 feed Makefile 未声明，
+# 导致打包阶段报 "Package tuic-client is missing dependencies" 并中断编译。
+if [ -f feeds/small/tuic-client/Makefile ]; then
+  if ! grep -q 'libstdcpp' feeds/small/tuic-client/Makefile; then
+    sed -i 's/^[[:space:]]*DEPENDS:=/  DEPENDS:=+libstdcpp /' feeds/small/tuic-client/Makefile
+  fi
+fi
