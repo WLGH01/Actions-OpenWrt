@@ -35,7 +35,7 @@ on:
       required_packages:
         description: 必须出现在最终 .config 中的软件包（逗号分隔）
         required: false
-        default: "daed,honk,luci-app-honk"
+        default: "daed"
 
 concurrency:
   group: openwrt-shared-self-hosted-runner
